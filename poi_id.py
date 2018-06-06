@@ -24,6 +24,9 @@ from sklearn.metrics import accuracy_score
 from sklearn.metrics import precision_score
 from sklearn.metrics import recall_score
 from tester import dump_classifier_and_data, test_classifier
+from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import classification_report
+
 
 ### Choose the features to use
 output_label = 'poi'
@@ -57,6 +60,27 @@ print "Length:", len(features_list)
 ### Load the dictionary containing the dataset
 with open("final_project_dataset.pkl", "r") as data_file:
     data_dict = pickle.load(data_file)
+
+print "-------------------------TEST THE DEFAULT DATASET AND FEATURE LIST------------------"
+default_list = [output_label] + financial_features_list + email_features_list
+with open("final_project_dataset.pkl", "r") as data_file:
+    default_data = pickle.load(data_file)
+
+data = featureFormat(default_data, default_list, sort_keys=True)
+labels, features = targetFeatureSplit(data)
+features_train, features_test, labels_train, labels_test = cross_validation.train_test_split(
+     features, labels, test_size=0.3, random_state=42)
+
+### Test Using Decision Tree Classifier
+clf_default = DecisionTreeClassifier()
+clf_default.fit(features_train, labels_train)
+pred = clf_default.predict(features_test)
+accuracy = clf_default.score(features_test, labels_test)
+print "Decision Tree accuracy:", accuracy
+
+clf_dt_default = DecisionTreeClassifier()
+test_classifier(clf_dt_default, default_data, default_list)
+
 
 print "--------------------------DATASET EXPLORATION---------------------------------------"
 helper_functions.enron_data_summary(data_dict)
@@ -135,6 +159,16 @@ find_nan_values()
 # Save the cleaned data to a new dataset called my_dataset
 my_dataset = data_dict
 
+# print "----------------CHECKING INFLUENCE OF NEW FEATURES and K-VALUES------------"
+# kbest_default = helper_functions.get_k_best(my_dataset, features_list, 12)
+
+
+# ### Add the top features with the POI label, creating a new feature list
+# features_list_default = [output_label] + kbest_default.keys()
+
+# clf_dt = DecisionTreeClassifier()
+# test_classifier(clf_dt, my_dataset, features_list)
+
 
 print "--------------------------CREATE NEW FEATURES-----------------------------"
 
@@ -151,6 +185,17 @@ print "Check dataset with new features:", my_dataset['LAY KENNETH L']
 
 
 
+print "--------------------------SELECT TOP FEATURES-----------------------------------------"
+### Decide which features are the most important using SelectKBest from scikit-learn
+kbest = helper_functions.get_k_best(my_dataset, features_list, 10)
+
+
+### Add the top features with the POI label, creating a new feature list
+features_list = [output_label] + kbest.keys()
+print "Refined Features List:", features_list
+print "Length:", len(features_list)
+
+
 print "--------------------------PRELIMINARY TESTING CLASSIFIERS-----------------------------"
 data = featureFormat(my_dataset, features_list, sort_keys=True)
 labels, features = targetFeatureSplit(data)
@@ -164,40 +209,35 @@ pred = clf.predict(features_test)
 accuracy = clf.score(features_test, labels_test)
 print "Decision Tree accuracy:", accuracy
 
-### compute precision score and recall score
+# ### compute precision score and recall score
 print "Precision Score:", precision_score(labels_test, pred)
 print "Recall Score:", recall_score(labels_test, pred)
 
-print "--------------------------SELECT TOP FEATURES-----------------------------------------"
-### Decide which features are the most important using SelectKBest from scikit-learn
-kbest = helper_functions.get_k_best(my_dataset, features_list, 10)
+target_names = ["Not POI", "POI"]
+
+print '\n Classification Report'
+print classification_report(y_true=labels_test, y_pred=pred, target_names=target_names)
 
 
-### Add the top features with the POI label, creating a new feature list
-features_list = [output_label] + kbest.keys()
-print "Refined Features List:", features_list
-print "Length:", len(features_list)
+clf_dt = DecisionTreeClassifier()
+test_classifier(clf_dt, my_dataset, features_list)
 
 
-print "--------------------------TUNING THE CLASSIFIER-----------------------------------------"
-### Tune the Decision Tree classifier using GridSearchCV
+# print "--------------------------TUNING THE CLASSIFIER-----------------------------------------"
+# ### Tune the Decision Tree classifier using GridSearchCV
 
-dtree = DecisionTreeClassifier()
-best_parameters = helper_functions.build_classifier_pipeline(dtree, 10, features_list, my_dataset)
-print 'Best parameters: ', best_parameters.best_params_
-best_est = helper_functions
-clf = dtree.best_estimator_
-pred = clf.predict(features_test)
-print clf
+# # dtree = DecisionTreeClassifier()
+# # best_parameters = helper_functions.classifier_tuning_pipeline(dtree, 10, features_list, my_dataset)
+# # print 'Best parameters: ', best_parameters.best_params_
 
 
+print "--------------------------EVALUATION-----------------------------------------"
 ### Task 6: Dump your classifier, dataset, and features_list so anyone can
 ### check your results. You do not need to change anything below, but make sure
 ### that the version of poi_id.py that you submit can be run on its own and
 ### generates the necessary .pkl files for validating your results.
-clf = DecisionTreeClassifier(criterion = 'gini', max_depth = 5, min_samples_split = 2, min_samples_leaf = 1)
+clf_dt = DecisionTreeClassifier(criterion='gini', max_depth = 6, min_samples_leaf = 1, min_samples_split = 2)
+test_classifier(clf_dt, my_dataset, features_list)
 
-helper_functions.test_classifier(clf, my_dataset, features_list)
-
-# dump = dump_classifier_and_data(clf, my_dataset, my_features)
-# print dump
+dump = dump_classifier_and_data(clf_dt, my_dataset, features_list)
+print dump
